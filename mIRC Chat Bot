@@ -1,31 +1,70 @@
+;mIRC only does something when something happens in the chat room. someone joining, leaving, entering a message
+
+;First command activates whenever someone isn't a bot enters the chat
 on *:join:#bananamonkeytaco: {
+
+  ;if statement to see if the user entering is a bot
   if ($nick == bananamtbot || $nick == revlobot || $nick == nightbot) {
     return
   }
+  
+  ;if the user is not a bot 2 timers will start
   else {
+    
+    ;Timer Explanation
+    ;After the name of the timer (which is optional) 2 numbers are required.
+    ;First number is amount of times the timer will activate, the second is how long between activations
+    ;If the first number is 0 it will repeat forever or until told to stop
+    ;After the 2 numbers is what the timer will actually do, it can send a message, start a method etc.
+    
+    ;first timer's name will look like timerpoints.User
+    ;Every minute it will activate the method/alias regularBananas for the user
     $+(timerpoints.,$nick) 0 60 regularBananas $nick
+    
+    ;second timer's name will look like timerleaderboard.User
+    Every minute it will activate the method/alias leaderboardBananas for the user
     $+(timerleaderboard.,$nick) 0 60 leaderboardBananas $nick
     echo 12 -at $nick joined and is receiving bananas
   }
 }
+
+;whenever someone leaves the chat their timers will stop
 on *:part:#bananamonkeytaco:{
   $+(timerpoints.,$nick) off
   $+(timerleaderboard.,$nick) off
   echo 12 -at $nick has left and is no long receiving bananas
 }
+
+;method for a user receiving a point
 alias -l regularBananas {
+  ;every time this alias/method is called it will edit a line in a ini file
+  
+  ;writeini explanation
+  ;everytime this command is used the -n switch is called. This does makes sure mIRC reads the line correctly and not like a computer
+  ;after the switches, the file must be specified. After that the topic must be specified. Then the item.
+  ;$1 is kind of like how a java method is called. {method(variable);} The $1 is what the variable is, which is a user's name
+  ;After determining where to write to, we take the user's previous amount of points and add one more to it
+  ;$readini works almost exactly like $writeini except that it only returns the item's variable (number/string)
+  ;an easy way of looking at the calculation is $calc("User's points" + 1)
   writeini -n Bananas.ini Bananas $1 $calc($readini(Bananas.ini,Bananas,$1)+1)
 }
 alias -l leaderboardBananas {
+  ;This is the exact same as the regualrbananas alias but with a different ini
+  ;This ini is different because no points will be taken away from this one, showing an all time accumulation of points
   writeini -n Leaderboard.ini Bananas $1 $calc($readini(Leaderboard.ini,Bananas,$1)+1)
 }
 alias -l cancelduel {
+  ;come back to this when you get to the duel section
+  ;Tell the chat that the duelee did not respond to the duel
   msg #bananamonkeytaco %duelee has run out of time to accept the challenge from %dueler and must now live in extreme shame.
+  ;reset all the variables to ensure no mix ups in the next duel
   %dueler = null
   %duelee = null
   %stakes = null
 }
+;alias to sort both ini files to show users with the most points down to the users with the least points
 alias inisort {
+  ;make 4 different windows, 2 for each ini file
   window @sortBananasIn
   window @sortBananasOut
   window @sortLeaderboardIn
