@@ -1,147 +1,188 @@
-;mIRC only does something when something happens in the chat room. someone joining, leaving, entering a message
-
-;First command activates whenever someone isn't a bot enters the chat
-on *:join:#bananamonkeytaco: {
-
-  ;if statement to see if the user entering is a bot
+; Whenever someone joins the chat
+on *:join:%channel: {
+  ; Don't do anything if the user is a bot
   if ($nick == bananamtbot || $nick == revlobot || $nick == nightbot) {
+    ; Do nothing
     return
   }
-  
-  ;if the user is not a bot 2 timers will start
   else {
-    
-    ;Timer Explanation
-    ;After the name of the timer (which is optional) 2 numbers are required.
-    ;First number is amount of times the timer will activate, the second is how long between activations
-    ;If the first number is 0 it will repeat forever or until told to stop
-    ;After the 2 numbers is what the timer will actually do, it can send a message, start a method etc.
-    
-    ;first timer's name will look like timerpoints.User
-    ;Every minute it will activate the method/alias regularBananas for the user
-    $+(timerpoints.,$nick) 0 60 regularBananas $nick
-    
-    ;second timer's name will look like timerleaderboard.User
-    Every minute it will activate the method/alias leaderboardBananas for the user
-    $+(timerleaderboard.,$nick) 0 60 leaderboardBananas $nick
-    echo 12 -at $nick joined and is receiving bananas
+    ; Activates the timer "timerpoints.User"
+    ; This timer will call the alias(method) regularPoints every 60 seconds
+    ; This also sends the user as a variable for the method
+    $+(timerpoints.,$nick) 0 60 regularPoints $nick
+    ; Activates the timer "timerleadboard.User"
+    ; Same as the above timer, will explain more in the method itself 
+    $+(timerleaderboard.,$nick) 0 60 leaderboardPoints $nick
+    ; This sends a message to the window, not the chat
+    echo 12 -at $nick joined and is receiving %points
   }
 }
-
-;whenever someone leaves the chat their timers will stop
-on *:part:#bananamonkeytaco:{
+; Whenever someone leaves the chat
+on *:part:%channel:{
+  ; No if statements to exclude anyone because mIRC can turn off timers that don't exist
+  ; Turn off the timer "timerpoints.User"
   $+(timerpoints.,$nick) off
+  ; Turn off the timer "timerleaderboard.User"
   $+(timerleaderboard.,$nick) off
-  echo 12 -at $nick has left and is no long receiving bananas
+  ; Send a message to the window
+  echo 12 -at $nick has left and is no long receiving %points
 }
-
-;method for a user receiving a point
-alias -l regularBananas {
-  ;every time this alias/method is called it will edit a line in a ini file
+; Used to give a user one more point
+alias -l regularPoints {
   
-  ;writeini explanation
-  ;everytime this command is used the -n switch is called. This does makes sure mIRC reads the line correctly and not like a computer
-  ;after the switches, the file must be specified. After that the topic must be specified. Then the item.
-  ;$1 is kind of like how a java method is called. {method(variable);} The $1 is what the variable is, which is a user's name
-  ;After determining where to write to, we take the user's previous amount of points and add one more to it
-  ;$readini works almost exactly like $writeini except that it only returns the item's variable (number/string)
-  ;an easy way of looking at the calculation is $calc("User's points" + 1)
-  writeini -n Bananas.ini Bananas $1 $calc($readini(Bananas.ini,Bananas,$1)+1)
+  ; ONLY EXPLAINING THIS ONCE PAY ATTENTION
+  ; Use the n switch (-n) to make sure mIRC doesn't look at the ini in computer language
+  ; The location to write to is the ini, topic, item, value
+  ; The new value is the calculation of the previous value plus 1
+  ; The old value is found with the $readini which functions like the writeini but returns instead of edits
+  
+  ; Add one point to the user's previous points
+  ; $1 is the variable received from the timer
+  writeini -n %ini %points $1 $calc($readini(%ini,%points,$1)+1)
 }
-alias -l leaderboardBananas {
-  ;This is the exact same as the regualrbananas alias but with a different ini
-  ;This ini is different because no points will be taken away from this one, showing an all time accumulation of points
-  writeini -n Leaderboard.ini Bananas $1 $calc($readini(Leaderboard.ini,Bananas,$1)+1)
+; User to give a user one more point to the leaderboard
+; This is different from the basic points in that no points are taken away from this ini
+; This ini shows only how much time a user has spent in the chat
+alias -l leaderboardPoints {
+  ;Add one more point to the user's previous points
+  writeini -n Leaderboard.ini %points $1 $calc($readini(Leaderboard.ini,%points,$1)+1)
 }
+; Alias used when a user does not respond to a duel for one minute
 alias -l cancelduel {
-  ;come back to this when you get to the duel section
-  ;Tell the chat that the duelee did not respond to the duel
-  msg #bananamonkeytaco %duelee has run out of time to accept the challenge from %dueler and must now live in extreme shame.
-  ;reset all the variables to ensure no mix ups in the next duel
+  ; Tell the chat that the duelee did not respond
+  msg %channel %duelee has run out of time to accept the challenge from %dueler and must now live in extreme shame.
+  ; Reset the variables to prevent any errors later
   %dueler = null
   %duelee = null
   %stakes = null
 }
-;alias to sort both ini files to show users with the most points down to the users with the least points
+; Alias used to sort the ini files by user with the most points to the user with the least points
 alias inisort {
-  ;make 4 different windows, 2 for each ini file
-  window @sortBananasIn
-  window @sortBananasOut
+  ; Create 4 windows
+  window @sortPointsIn
+  window @sortPointsOut
   window @sortLeaderboardIn
   window @sortLeaderboardOut
-  loadbuf -t @sortBananasIn Bananas.ini
-  filter -cteu 2 61 @sortBananasIn @sortBananasOut
+  ; Load the Basic ini into the sortPointsIn window
+  loadbuf -t @sortPointsIn %ini
+  ; Clear the sortPointsOut window and filter everything in the sortPointsIn window into the sortPointsOut window
+  ; The -t switch sorts everything, the -e switch makes it sort in descending order, and the -u switch makes the sort numerical
+  ; The two numbers seperates each user and their points by the equals sign. The equals sign is character 61 in ASCII
+  ; The user's points is the 2nd value in a line when a "value" is seperated by the equals sign. User=Points. Value one "User" Value two "Points"
+  filter -cteu 2 61 @sortPointsIn @sortPointsOut
+  ; Next two lines are the same thing but for the leaderboard ini file
   loadbuf -t @sortLeaderboardIn Leaderboard.ini
   filter -cteu 2 61 @sortLeaderboardIn @sortLeaderboardOut
-  iline @sortBananasOut 1 [Bananas]
+  ; Because the sorting was numerical the topic [Points] was sorted to the bottom, making all values under no topic
+  ; To fix this we readd the topic to the top of the sorted windows
+  iline @sortPointsOut 1 [Bananas]
   iline @sortLeaderboardOut 1 [Bananas]
-  remini Bananas.ini Bananas
-  savebuf -a @sortBananasOut Bananas.ini
+  ; Because the ini file has not actually been sorted we need to clear it out by deleting the topic
+  remini %ini Bananas
+  ; Save what is in the sorted window to the ini file
+  savebuf -a @sortPointsOut %ini
+  ; Same thign but for the leaderboard ini file
   remini Leaderboard.ini Bananas
   savebuf -a @sortLeaderboardOut Leaderboard.ini
-  window -c @sortBananasIn
-  window -c @sortBananasOut
+  ; Close the unneeded windows
+  window -c @sortPointsIn
+  window -c @sortPointsOut
   window -c @sortLeaderboardIn
   window -c @sortLeaderboardOut
 }
-on *:text:!bananas:#bananamonkeytaco: {
-  msg $chan $nick has $readini(Bananas.ini,Bananas,$nick) Bananas.
-  echo 12 -t $nick requested banana amount
+; Command for a user requesting how many points they have
+on *:text:!bananas:%channel: {
+  ; Message the channel 
+  msg $chan $nick has $readini(%ini,%points,$nick) %points
+  ; Message the window what happened
+  echo 12 -t $nick requested amount of %points
 }
-on *:text:!givebananas:#bananamonkeytaco: {
-  if ($nick isop #bananamonkeytaco) {
+; Command to give a user points without having to edit the ini file manually
+; Activated if the chat message BEGINS with !givebananas
+on *:text:!givebananas*:%channel: {
+  ; Check to see if the user is an op in the channel
+  if ($nick isop %channel) {
+    ; Make sure that there are 3 seperate values
     if ($0 == 3) {
+      ; Make sure the 3rd value is a number
       if ($3 isnum) {
-        writeini -n Bananas.ini Bananas $2 $calc($readini(Bananas.ini,Bananas,$2)+ $3)
-        msg $chan $2 has been given $3 bananas.
+        ; Give the amount of points specified (3rd value/$3) to the user specified (2nd value/$2)
+        ; Both positive and negative numbers will work
+        writeini -n %ini %points $2 $calc($readini(%ini,%points,$2)+ $3)
+        ; Send a message to the chat showing the user receiving point
+        msg $chan $2 has been given $3 %points
       }
+      ; If the 3rd value isn't a number
       else {
+        ; Say that a number is needed
         msg $chan You must give a number to give.
       }
     }
+    ; If 3 values aren't given
     else if ($0 != 3) {
-      msg $chan Error. Command requires 3 words. !givebananas, Name, Number of bananas to give.
+      ; Say that 3 values/words are needed
+      msg $chan Error. Command requires 3 words. !givebananas, Name, Number of %points to give.
     }
   }
+  ; If the user isn't an op/mod in the channel
   else {
+    ; Tell the user to get lost
     msg $chan This command is for mods only.
   }
 }
-on *:text:!info:#bananamonkeytaco: {
+; Command for unfinshed info doc about the bot
+on *:text:!info:%channel: {
   msg $chan For information about me check out this Google Doc: https://docs.google.com/document/d/1qJfsyScG3XepkhOqKGcETzF7QLC9hV876QphGW2woU8/edit?usp=sharing
 }
-on *:text:!sort:#bananamonkeytaco: {
+; Command for sorting the ini files
+on *:text:!sort:%channel: {
+  ; Check to see if the user is the Great Almighty
   if ($nick == bananamonkeytaco) {
+    ; Call the inisort method
     $inisort
   }
 }
-on *:text:!gamble*:#bananamonkeytaco: {
+; Command for the great evil that everyone does anyways
+on *:text:!gamble*:%channel: {
+  ; If 2 values aren't given
   if ($0 != 2) {
+    ; Tell the user he's had too much to drink and to stop gambling
     msg $chan Error. Gamble command requires !gamble and a number.
   }
+  ; If the value to be gambled is more than 1000
   else if ($2 > 1000) {
-    msg $chan You cannot gamble more than 1000 bananas.
+    ; Tell the user that he shouldn't gamble his kid's college fund
+    msg $chan You cannot gamble more than 1000 %points
   }
+  ; If everything checks out
   else {
+    ; Make a random number in between/including 1 - 100
     %num = $rand(1,100)
+    ; If the number rolled is more than 60
     if (%num > 60) {
-      msg $chan $nick has rolled %num and won $2 bananas.
-      writeini -n Bananas.ini Bananas $nick $calc($readini(Bananas.ini,Bananas,$nick)+ $2)
+      ; Tell the chat and user what he rolled and that he won his points (doubled)
+      msg $chan $nick has rolled %num and won $2 %points
+      ; Go to the BASIC ini file and give the user the points he won
+      writeini -n %ini %points $nick $calc($readini(%ini,%points,$nick)+ $2)
     }
+    ; If the number rolled is 60 or less
     else if (%num <= 60) {
-      msg $chan $nick has rolled %num and lost $2 bananas.
-      writeini -n Bananas.ini Bananas $nick $calc($readini(Bananas.ini,Bananas,$nick)- $2)
+      ; Tell the user what he rolled and the sad news
+      msg $chan $nick has rolled %num and lost $2 %points
+      ; Go to the BASIC ini file and take away the points the user lost
+      writeini -n %ini %points $nick $calc($readini(%ini,%points,$nick)- $2)
     }
   }
 }
-on *:text:!duel*:#bananamonkeytaco: {
+; Command for the 
+on *:text:!duel*:%channel: {
   if ($0 = 3) {
     if (%dueler == null) {
       if ($3 > 1000) {
-        msg $chan Sorry but gambling over 1000 bananas is not allowed.
+        msg $chan Sorry but gambling over 1000 %points is not allowed.
       }
       else {
-        msg $chan $nick has challenged $1 to a duel worth $3 bananas! $1 do you accept or decline this duel?
+        msg $chan $nick has challenged $1 to a duel worth $3 %points ! $1 do you accept or decline this duel?
         %dueler = $nick
         %duelee = $2
         %stakes = $3
@@ -153,31 +194,31 @@ on *:text:!duel*:#bananamonkeytaco: {
     }
   }
   else if ($0 != 3) {
-    msg $chan Error. This command requires 3 words. !duel, Name, Number of bananas to bet.
+    msg $chan Error. This command requires 3 words. !duel, Name, Number of %points to bet.
   }
 }
-on *:text:!accept:#bananamonkeytaco: {
+on *:text:!accept:%channel: {
   if (%duelee == $nick) {
     timerduel off
-    msg $chan %duelee has accepted the duel from %dueler for %stakes bananas. It's time to ROLL!
+    msg $chan %duelee has accepted the duel from %dueler for %stakes %points . It's time to ROLL!
     %duelerRoll = $rand(1,100)
     %dueleeRoll = $rand(1,100)
-    writeini -n Bananas.ini Bananas %dueler $calc($readini(Bananas.ini,Bananas,%dueler)-%stakes)
-    writeini -n Bananas.ini Bananas %duelee $calc($readini(Bananas.ini,Bananas,%duelee)-%stakes)
+    writeini -n %ini %points %dueler $calc($readini(%ini,%points,%dueler)-%stakes)
+    writeini -n %ini %points %duelee $calc($readini(%ini,%points,%duelee)-%stakes)
     msg $chan %dueler started the duel and rolls first. He rolls a %duelerRoll now let's wait and see what %duelee will roll.
     msg $chan %duelee rolls a $rand(1,100)
     if (%duelerRoll > %dueleeRoll) {
       msg $chan %dueler has won the duel and won $calc(%stakes * 2)
-      writeini -n Bananas.ini Bananas %dueler $calc($readini(Bananas.ini,Bananas,%dueler)+$calc(%stakes * 2))
+      writeini -n %ini %points %dueler $calc($readini(%ini,%points,%dueler)+$calc(%stakes * 2))
     }
     else if (%dueleeRoll > %duelerRoll) {
       msg $chan %duelee has won the duel and won $calc(%stakes * 2)
-      writeini -n Bananas.ini Bananas %duelee $calc($readini(Bananas.ini,Bananas,%duelee)+$calc(%stakes * 2))
+      writeini -n %ini %points %duelee $calc($readini(%ini,%points,%duelee)+$calc(%stakes * 2))
     } 
     else if (%dueleeRoll == %duelerRoll) {
       msg $chan Both %duelee and %dueler rolled %duelerrRoll so neither has won the duel.
-      writeini -n Bananas.ini Bananas %dueler $calc($readini(Bananas.ini,Bananas,%dueler)+%stakes)
-      writeini -n Bananas.ini Bananas %duelee $calc($readini(Bananas.ini,Bananas,%duelee)+%stakes)
+      writeini -n %ini %points %dueler $calc($readini(%ini,%points,%dueler)+%stakes)
+      writeini -n %ini %points %duelee $calc($readini(%ini,%points,%duelee)+%stakes)
     }
     %duelee = null
     %dueler = null
@@ -186,7 +227,7 @@ on *:text:!accept:#bananamonkeytaco: {
     %duelerRoll = null
   }
 }
-on *:text:!decline:#bananamonkeytaco: {
+on *:text:!decline:%channel: {
   if (%duelee == $nick) {
     timerduel off
     msg $chan %duelee has declined the duel from %dueler and must live in dishonor forever.
@@ -195,32 +236,32 @@ on *:text:!decline:#bananamonkeytaco: {
     %stakes = null
   }
 }
-on *:text:!rank*:#bananamonkeytaco: {
+on *:text:!rank*:%channel: {
   if ($0 = 1) {
     window @rank
-    loadbuf -t @rank Bananas.ini
+    loadbuf -t @rank %ini
     dline @rank 1
     filter -cnteu 2 61 @rank @rank
     filter -c @rank @rank $+(*,$nick,*)
     %rank = $gettok($line(@rank,1),1,32)
     window -c @rank
-    msg $chan $nick is %rank on the leaderboard for current Bananas.
+    msg $chan $nick is %rank on the leaderboard for current %points
   }
   else if ($0 = 2) {
     if ($2 !isnum) {
       window @rank
-      loadbuf -t @rank Bananas.ini
+      loadbuf -t @rank %ini
       dline @rank 1
       filter -cnteu 2 61 @rank @rank
       filter -c @rank @rank $+(*,$2,*)
       %rank = $gettok($line(@rank,1),1,32)
       window -c @rank
-      msg $chan $2 is %rank on the leaderboard for current Bananas.
+      msg $chan $2 is %rank on the leaderboard for current %points
     }
     else if ($2 isnum) {
       window @rank
       window @newrank
-      loadbuf -t @rank Bananas.ini
+      loadbuf -t @rank %ini
       dline @rank 1
       filter -cnteu 2 61 @rank @newrank
       filter -cnteu 2 61 @rank @rank
@@ -232,7 +273,7 @@ on *:text:!rank*:#bananamonkeytaco: {
   }
   %rank = null
 }
-on *:text:!alltimerank*:#bananamonkeytaco: {
+on *:text:!alltimerank*:%channel: {
   if ($0 = 1) {
     window @rank
     loadbuf -t @rank Leaderboard.ini
@@ -241,7 +282,7 @@ on *:text:!alltimerank*:#bananamonkeytaco: {
     filter -c @rank @rank $+(*,$nick,*)
     %rank = $gettok($line(@rank,1),1,32)
     window -c @rank
-    msg $chan $nick is %rank on the leaderboard for all time Bananas.
+    msg $chan $nick is %rank on the leaderboard for all time %points
   }
   else if ($0 = 2) {
     if ($2 !isnum) {
@@ -252,7 +293,7 @@ on *:text:!alltimerank*:#bananamonkeytaco: {
       filter -c @rank @rank $+(*,$2,*)
       %rank = $gettok($line(@rank,1),1,32)
       window -c @rank
-      msg $chan $2 is %rank on the leaderboard for all time Bananas.
+      msg $chan $2 is %rank on the leaderboard for all time %points
     }
     else if ($2 isnum) {
       window @rank
@@ -269,15 +310,15 @@ on *:text:!alltimerank*:#bananamonkeytaco: {
   }
   %rank = null
 }
-on *:text:!leaderboard:#bananamonkeytaco: {
+on *:text:!leaderboard:%channel: {
   window @leaderboard
-  loadbuf -t @leaderboard Bananas.ini
+  loadbuf -t @leaderboard %ini
   dline @leaderboard 1
   filter -cteu 2 61 @leaderboard @leaderboard
   msg $chan The top 5 people are: $line(@leaderboard,1) $line(@leaderboard,2) $line(@leaderboard,3) $line(@leaderboard,4) $line(@leaderboard,5)
   window -c @leaderboard
 }
-on *:text:!alltimeleaderboard:#bananamonkeytaco: {
+on *:text:!alltimeleaderboard:%channel: {
   window @leaderboard
   loadbuf -t @leaderboard Leaderboard.ini
   dline @leaderboard 1
@@ -285,52 +326,61 @@ on *:text:!alltimeleaderboard:#bananamonkeytaco: {
   msg $chan The top 5 people are: $line(@leaderboard,1) $line(@leaderboard,2) $line(@leaderboard,3) $line(@leaderboard,4) $line(@leaderboard,5)
   window -c @leaderboard
 }
-on *:text:!daytax:#bananamonkeytaco: {
+on *:text:!daytax:%channel: {
   if ($nick == bananamonkeytaco) {
-    %temp = $lines(Bananas.ini)
+    %temp = $lines(%ini)
     while (%temp > 1) {
       dec %temp
-      writeini -n Bananas.ini Bananas $ini(Bananas.ini,1,%temp) $calc($readini(Bananas.ini,Bananas,$ini(Bananas.ini,1,%temp))-1)
-      if ($readini(Bananas.ini,Bananas,$ini(Bananas.ini,1,%temp)) < 1) {
-        remini -n Bananas.ini Bananas $ini(Bananas.ini,1,%temp)
+      writeini -n %ini %points $ini(%ini,1,%temp) $calc($readini(%ini,%points,$ini(%ini,1,%temp))-1)
+      if ($readini(%ini,%points,$ini(%ini,1,%temp)) < 1) {
+        remini -n %ini %points $ini(%ini,1,%temp)
       }
     }
     %temp = $lines(Leaderboard.ini)
     while (%temp > 1) {
       dec %temp
-      writeini -n Leaderboard.ini Bananas $ini(Leaderboard.ini,1,%temp) $calc($readini(Leaderboard.ini,Bananas,$ini(Leaderboard.ini,1,%temp))-1)
-      if ($readini(Leaderboard.ini,Bananas,$ini(Leaderboard.ini,1,%temp)) < 1) {
-        remini -n Leaderboard.ini Bananas $ini(Leaderboard.ini,1,%temp)
+      writeini -n Leaderboard.ini %points $ini(Leaderboard.ini,1,%temp) $calc($readini(Leaderboard.ini,%points,$ini(Leaderboard.ini,1,%temp))-1)
+      if ($readini(Leaderboard.ini,%points,$ini(Leaderboard.ini,1,%temp)) < 1) {
+        remini -n Leaderboard.ini %points $ini(Leaderboard.ini,1,%temp)
       }
     }
   }
 }
-on *:text:!sr*:#bananamonkeytaco: {
+on *:text:!sr*:%channel: {
   timersong 1 10 msg $chan !sr $2-
-  msg $chan Redeeming a SongRequest for $nick at the cost of 20 bananas.
-  writeini -n Bananas.ini Bananas $nick $calc($readini(Bananas.ini,Bananas,$nick)-20)
+  msg $chan Redeeming a SongRequest for $nick at the cost of 20 %points
+  writeini -n %ini %points $nick $calc($readini(%ini,%points,$nick)-20)
 }
-on *:text:!songrequest*:#bananamonkeytaco: {
+on *:text:!songrequest*:%channel: {
   timersong 1 10 msg $chan !sr $2-
-  msg $chan Redeeming a SongRequest for $nick at the cost of 20 bananas.
-  writeini -n Bananas.ini Bananas $nick $calc($readini(Bananas.ini,Bananas,$nick)-20)
+  msg $chan Redeeming a SongRequest for $nick at the cost of 20 %points
+  writeini -n %ini %points $nick $calc($readini(%ini,%points,$nick)-20)
 }
-on *:text:!discordreward:#bananamonkeytaco: {
-  if ($readini(Bananas.ini,Bananas,$nick) >= 300) {
+on *:text:!discordreward:%channel: {
+  if ($readini(%ini,%points,$nick) >= 300) {
     msg $chan /w $nick Use this link to join the discord: https://discord.gg/xC7zc6n Also make sure to say in the chat when you join so my master can allow you to speak in the Discord. Also note that I am not able to respond in any way
   }
   else {
-    msg $chan I'm sorry, but you do not have the 300 bananas needed to redeem this reward.
+    msg $chan I'm sorry, but you do not have the 300 %points needed to redeem this reward.
   }
 }
-on *:text:*nowabot*:#bananamonkeytaco: {
+on *:text:*nowabot*:%channel: {
   msg $chan Did someone say something about my dad?
 }
-on *:text:*moobot*:#bananamonkeytaco: {
+on *:text:*moobot*:%channel: {
   msg $chan Did someone say moobot? Do you think I'm moobot? Are you trying to imply that I'm similar to that useless, filthy, garbage bot? How dare you.
 }
-on *:text:!yonder:#bananamonkeytaco: {
+on *:text:!yonder:%channel: {
   msg $chan ...
+}
+on *:text:!set:#bananamonkeytaco: {
+  set %channel #bananamonkeytaco
+  set %points Bananas
+  set %ini $+(%points,.ini)
+}
+on *:text:something:#bananamonkeytaco: {
+  msg $chan %channel
+  msg $chan %ini
 }
 on *:text:*:#: {
   return
