@@ -29,13 +29,13 @@ on *:part:%channel:{
 }
 ; Used to give a user one more point
 alias -l regularPoints {
-  
+
   ; ONLY EXPLAINING THIS ONCE PAY ATTENTION
   ; Use the n switch (-n) to make sure mIRC doesn't look at the ini in computer language
   ; The location to write to is the ini, topic, item, value
   ; The new value is the calculation of the previous value plus 1
   ; The old value is found with the $readini which functions like the writeini but returns instead of edits
-  
+
   ; Add one point to the user's previous points
   ; $1 is the variable received from the timer
   writeini -n %ini %points $1 $calc($readini(%ini,%points,$1)+1)
@@ -50,7 +50,7 @@ alias -l leaderboardPoints {
 ; Alias used when a user does not respond to a duel for one minute
 alias -l cancelduel {
   ; Tell the chat that the duelee did not respond
-  msg %channel %duelee has run out of time to accept the challenge from %dueler and must now live in extreme shame.
+  msg $chan %duelee has run out of time to accept the challenge from %dueler and must now live in extreme shame.
   ; Reset the variables to prevent any errors later
   %dueler = null
   %duelee = null
@@ -174,52 +174,85 @@ on *:text:!gamble*:%channel: {
     }
   }
 }
-; Command for the 
+; Command for the command the most work was put into but nobody ever uses
 on *:text:!duel*:%channel: {
+  ; Make sure 3 seperate values are given
   if ($0 = 3) {
+    ; Make sure a duel isn't already in progress
     if (%dueler == null) {
+      ; Make sure the stakes are not over 1000
       if ($3 > 1000) {
+        ; Remind people not to gamble away their kids college funds
         msg $chan Sorry but gambling over 1000 %points is not allowed.
       }
+      ; If everything checks out
       else {
-        msg $chan $nick has challenged $1 to a duel worth $3 %points ! $1 do you accept or decline this duel?
+        ; Notify the chat that a duel has been issued
+        msg $chan $nick has challenged $2 to a duel worth $3 %points ! $2 do you accept or decline this duel?
+        ; Set the dueler variable to the person who started it
         %dueler = $nick
+        ; The person being challenged is labelled as the duelee and is the second value given
         %duelee = $2
+        ; The stakes are the amount of points being bet with and is the third value given
         %stakes = $3
+        ; Start a timer to cancel the challenge if unanswered for one minute
+        ; Timer will only activate once
         timerduel 1 60 cancelduel
       }
     }
+    ; If a duel is already taking place
     else {
+      ; Notify the user that a duel is already taking place
       msg $chan Sorry, but there is already a duel that has been started. Please wait until that duel expires before requesting another.
     }
   }
+  ; If more or less than 3 values are given
   else if ($0 != 3) {
+    ; Tell the user how to user the command correctly
     msg $chan Error. This command requires 3 words. !duel, Name, Number of %points to bet.
   }
 }
+; On text event for someone accepting a duel
 on *:text:!accept:%channel: {
+  ; Check to see if it's the duelee accepting the duel
   if (%duelee == $nick) {
+    ; Turn off the timer that cancels the duel
     timerduel off
+    ; Message the chat that a duel is now commencing
     msg $chan %duelee has accepted the duel from %dueler for %stakes %points . It's time to ROLL!
+    ; Make two random number between/including 1 - 100
     %duelerRoll = $rand(1,100)
     %dueleeRoll = $rand(1,100)
+    ; Take away the stakes from both participants
     writeini -n %ini %points %dueler $calc($readini(%ini,%points,%dueler)-%stakes)
     writeini -n %ini %points %duelee $calc($readini(%ini,%points,%duelee)-%stakes)
+    ; Message the chat what the dueler rolled
     msg $chan %dueler started the duel and rolls first. He rolls a %duelerRoll now let's wait and see what %duelee will roll.
-    msg $chan %duelee rolls a $rand(1,100)
+    ; Message the chat what the duelee rolled
+    msg $chan %duelee rolls a %dueleeRoll
+    ; If the dueler won
     if (%duelerRoll > %dueleeRoll) {
+      ; Tell the chat that the dueler won and how much he won
       msg $chan %dueler has won the duel and won $calc(%stakes * 2)
+      ; Give the dueler their winnings
       writeini -n %ini %points %dueler $calc($readini(%ini,%points,%dueler)+$calc(%stakes * 2))
     }
+    ; If the duelee won
     else if (%dueleeRoll > %duelerRoll) {
+      ; Tell the chat that the duelee won and how much he won
       msg $chan %duelee has won the duel and won $calc(%stakes * 2)
+      ; Give the duelee their winnings
       writeini -n %ini %points %duelee $calc($readini(%ini,%points,%duelee)+$calc(%stakes * 2))
     } 
+    ; If the duel was a tie
     else if (%dueleeRoll == %duelerRoll) {
+      ; Tell the chat that the duel was a tie
       msg $chan Both %duelee and %dueler rolled %duelerrRoll so neither has won the duel.
+      ; Give both participants their points back
       writeini -n %ini %points %dueler $calc($readini(%ini,%points,%dueler)+%stakes)
       writeini -n %ini %points %duelee $calc($readini(%ini,%points,%duelee)+%stakes)
     }
+    ; Reset all the variable to prevent mix ups in the code the next time a duel takes place
     %duelee = null
     %dueler = null
     %stakes = null
@@ -227,37 +260,67 @@ on *:text:!accept:%channel: {
     %duelerRoll = null
   }
 }
+; On text event for a user declining a duel
 on *:text:!decline:%channel: {
+  ; Make sure it's the duelee who's declining the duel
   if (%duelee == $nick) {
+    ; Turn off the timer that cancels the duel
     timerduel off
+    ; Tell the chat that a duel has been declined
     msg $chan %duelee has declined the duel from %dueler and must live in dishonor forever.
+    ; Reset all the variables involved to prevent any mix ups in the code for the next duel
     %duelee = null
     %dueler = null
     %stakes = null
   }
 }
+; On text event for someone checking their rank
 on *:text:!rank*:%channel: {
+  ; If they only have one value
   if ($0 = 1) {
+    ; Make a window
     window @rank
+    ; Load the basic ini into the window
     loadbuf -t @rank %ini
+    ; Delete the first line which is the topic line
     dline @rank 1
+    ; Clear the window and sort all the lines by their second value that is seperated by the equals sign
+    ; This would be each users amount of points since each line is User=Points
+    ; The sorting is in descending order and adds a number for their place. The top would be "1 User=Point" notice the space
     filter -cnteu 2 61 @rank @rank
+    ; Filter out all the lines that don't contain the user's name
     filter -c @rank @rank $+(*,$nick,*)
+    ; Make the variable the user's place by looking in the only line left for the first value
+    ; Values are now seperated by a space which is character 32 in ASCII
     %rank = $gettok($line(@rank,1),1,32)
+    ; Close the unneeded window
     window -c @rank
+    ; Tell the user what their rank is for current points
     msg $chan $nick is %rank on the leaderboard for current %points
   }
+  ; If 2 values are given
   else if ($0 = 2) {
+    ; If the second value is not a number
+    ; This is to see what rank a specific user is
     if ($2 !isnum) {
+      ; Next 4 lines are just like the last rank check
       window @rank
       loadbuf -t @rank %ini
       dline @rank 1
       filter -cnteu 2 61 @rank @rank
+      ; Filter out all the lines that don't contain the user specified
       filter -c @rank @rank $+(*,$2,*)
+      ; Make the variable the first value that is seperated by a space
       %rank = $gettok($line(@rank,1),1,32)
+      ; Make a variable that is the user's amount of points by choosing the second value sperated by an equals sign
+      %amount = $gettok($line(@rank,1),2,61)
+      ; Close the unneeded window
       window -c @rank
-      msg $chan $2 is %rank on the leaderboard for current %points
+      ; Tell the chat what rank the specified user is and how many points they have
+      msg $chan $2 is %rank on the leaderboard for current %points with %amount %points
     }
+    ; If the second value is a number
+    ; This is to see which user is at a specific rank
     else if ($2 isnum) {
       window @rank
       window @newrank
@@ -271,28 +334,55 @@ on *:text:!rank*:%channel: {
       msg $chan rank inbetweens $read(@rank) GGRRGTbrrbRBTREGRG error
     }
   }
+  ; Reset all the variables involved
   %rank = null
+  %amount = null
 }
+; On text event for someone wanting to see their leaderboard rank
+; This will be almost the exact same as the !rank command
 on *:text:!alltimerank*:%channel: {
+  ; If only 1 value is given
   if ($0 = 1) {
+    ; Make a window
     window @rank
+    ; Load the Leaderboard ini file into the window
     loadbuf -t @rank Leaderboard.ini
+    ; Delete the first line which is just the topic line
     dline @rank 1
+    ; Clear the window and sort all the lines by their second value that is seperated by the equals sign
+    ; This would be each users amount of points since each line is User=Points
+    ; The sorting is in descending order and adds a number for their place. The top would be "1 User=Point" notice the space
     filter -cnteu 2 61 @rank @rank
+    ; Filter out all the lines that don't contain the user's name
     filter -c @rank @rank $+(*,$nick,*)
+    ; Make the variable the first value (which is the line number from the first filter) which is seperated by a space
     %rank = $gettok($line(@rank,1),1,32)
+    ; Make a variable that is the user's amount of points by choosing the second value that is seperated by an equals sign
+    %amount = $gettok($line(@line,1),2,61)
+    ; Close the unneeded window
     window -c @rank
-    msg $chan $nick is %rank on the leaderboard for all time %points
+    ; Message the chat what the user's rank was and how many points they have on the leaderboard
+    msg $chan $nick is %rank on the leaderboard for all time %points with %amount %points
   }
+  ; If 2 values are given
   else if ($0 = 2) {
+    ; If the second value is not a number
+    ; This is to find what rank a specific user is
     if ($2 !isnum) {
+      ; Next 4 lines are the exact same as before
       window @rank
       loadbuf -t @rank Leaderboard.ini
       dline @rank 1
       filter -cnteu 2 61 @rank @rank
+      ; Filter only the lines (read LINE) that contain the specified user's name
       filter -c @rank @rank $+(*,$2,*)
+      ; Make the variable for their rank the first value that is seperated by a space
       %rank = $gettok($line(@rank,1),1,32)
+      ; Make a variable that is the amount of points the specified user has by choosing the second value that is seperated by an equals sign
+      %amount = $gettok($line(@rank,1),2,61)
+      ; Close the unneeded window
       window -c @rank
+      ; Message the chat what the specified user's rank was and how many points they have on the leaderboard
       msg $chan $2 is %rank on the leaderboard for all time %points
     }
     else if ($2 isnum) {
@@ -309,75 +399,153 @@ on *:text:!alltimerank*:%channel: {
     }
   }
   %rank = null
+  %amount = null
 }
+; On text command for showing the top 5 user's with the most current points
 on *:text:!leaderboard:%channel: {
+  ; Make a window
   window @leaderboard
+  ; Load the CURRENT points ini file into the window
   loadbuf -t @leaderboard %ini
+  ; Remove the first line from the window since this only contains the topic
   dline @leaderboard 1
+  ; Clear the window before sorting all the lines numerically
+  ; The values are sorted based on the second value that is seperated by an equals sign
+  ; This time we don't label each line with a number as we already know which lines we need
   filter -cteu 2 61 @leaderboard @leaderboard
+  ; Tell the chat who the top 5 user's are by retrieving the first 5 lines in the window
+  ; Because we don't seperate any values this will show each user's amount of points
   msg $chan The top 5 people are: $line(@leaderboard,1) $line(@leaderboard,2) $line(@leaderboard,3) $line(@leaderboard,4) $line(@leaderboard,5)
+  ; Close the unneeded window
   window -c @leaderboard
 }
+; On text command for showing the top 5 user's with the most overal points
+; Almost the exact same as the previous command
 on *:text:!alltimeleaderboard:%channel: {
+  ; Make a window
   window @leaderboard
+  ; Load the leaderboard ini file into the window
   loadbuf -t @leaderboard Leaderboard.ini
+  ; Remove the first line from the window since this only contains the topic
   dline @leaderboard 1
+  ; The values are sorted based on the second value that is seperated by an equals sign
+  ; This time we don't label each line with a number as we already know which lines we need
   filter -cteu 2 61 @leaderboard @leaderboard
+  ; Tell the chat who the top 5 user's are by retrieving the first 5 lines in the window
+  ; Because we don't seperate any values this will show each user's amount of total points
   msg $chan The top 5 people are: $line(@leaderboard,1) $line(@leaderboard,2) $line(@leaderboard,3) $line(@leaderboard,4) $line(@leaderboard,5)
+  ; Close the unneeded window
   window -c @leaderboard
 }
+; The purpose of this command is more for Me as the creator. Every time someone enters the chat they are logged into both ini files
+; Lots of people will leave after having a short sampling of the stream and never come back. However they will stay in the ini files
+; This command was made to help keep the ini files clean and short, thus easier and faster to sort through
+; Whenver this command is called, it will take away one point from every user in both ini files
+; If the user's amount of points in either file reach 0, that user is removed from the file
 on *:text:!daytax:%channel: {
+  ; Make sure the user is the specified master of the bot
   if ($nick == bananamonkeytaco) {
+    ; Make the variable equal to the amount of lines in the basic ini file
     %temp = $lines(%ini)
+    ; The reason we make this repeat until the variable is one, is because at 1 it would be editing the topic line
     while (%temp > 1) {
+      ; Take away 1 from the variable
+      ; Yes, we do this before doing anything with it
       dec %temp
+      ; The $ini identifier works as so. It looks in the ini file specified (%ini) and looks in the first topic (1) and returns the name of the item number given (%temp)
+      ; It's almost exactly like $readini but a little bit broader
+      ; It works with the writeini command here because writeini will not work with raw numbers
+      ; So instead we feed the $ini the number which gives the writeini the actual value needed
+      ; It works with $readini the same way
+      ; The reason we decreased the %temp variable is because it is the TOTAL LINES of the ini files
+      ; Because the topic is a line itself, the total lines is exactly one more line than the amount of lines in the topic itself
+      ; Using all of this knowledge, this line simple takes one point away from each user, starting at the bottom
       writeini -n %ini %points $ini(%ini,1,%temp) $calc($readini(%ini,%points,$ini(%ini,1,%temp))-1)
+      ; If a user's amount of points reaches 0
       if ($readini(%ini,%points,$ini(%ini,1,%temp)) < 1) {
+        ; Remove the user's line from the ini file
         remini -n %ini %points $ini(%ini,1,%temp)
       }
     }
+    ; Renew the variable to the total lines in the leaderboard ini file
     %temp = $lines(Leaderboard.ini)
+    ; While the variable is more than one, same reason as before
     while (%temp > 1) {
+      ; Immediately take away one from the variable
       dec %temp
+      ; Take one point away from the user's all time points
       writeini -n Leaderboard.ini %points $ini(Leaderboard.ini,1,%temp) $calc($readini(Leaderboard.ini,%points,$ini(Leaderboard.ini,1,%temp))-1)
+      ; If the user's amount of points reaches 0
       if ($readini(Leaderboard.ini,%points,$ini(Leaderboard.ini,1,%temp)) < 1) {
+        ; Remove the user's line from the ini file
         remini -n Leaderboard.ini %points $ini(Leaderboard.ini,1,%temp)
       }
     }
   }
 }
+; Redeemable rewards section of the code
+; First of two identical songrequests commands
+; Tried to make a regex, worked for a bit until it activated for anything beginning with !s
+; Now there is 2 commands
 on *:text:!sr*:%channel: {
+  ; Set a timer to virtually repeat what the user said
+  ; There's no easy way to shut Nightbot (the bot controlling songrequests) up
+  ; The solution to the problem is to set songrequests to moderators only, let nightbot yell, then redo the request using the bot
+  ; The timer is because Nightbot will be fufilling the command to yell and won't listen to an immediate songrequest
   timersong 1 10 msg $chan !sr $2-
+  ; Repeat the request
   msg $chan Redeeming a SongRequest for $nick at the cost of 20 %points
+  ; Take away 20 points from the user
   writeini -n %ini %points $nick $calc($readini(%ini,%points,$nick)-20)
 }
+; Second song request command. Identical to the first
 on *:text:!songrequest*:%channel: {
   timersong 1 10 msg $chan !sr $2-
   msg $chan Redeeming a SongRequest for $nick at the cost of 20 %points
   writeini -n %ini %points $nick $calc($readini(%ini,%points,$nick)-20)
 }
+; Reward for an invitation to the discord
 on *:text:!discordreward:%channel: {
+  ; Make sure the user has the amount of points needed
   if ($readini(%ini,%points,$nick) >= 300) {
+    ; No simple way to set up actual whispers with other users
+    ; Work-around is to message the chat but make Twitch intercept the whisper request
     msg $chan /w $nick Use this link to join the discord: https://discord.gg/xC7zc6n Also make sure to say in the chat when you join so my master can allow you to speak in the Discord. Also note that I am not able to respond in any way
   }
+  ; If the user does not have the needed points
   else {
+    ; Tell them to get more points
     msg $chan I'm sorry, but you do not have the 300 %points needed to redeem this reward.
   }
 }
+; Next 3 on text events are just silly things/inside jokes
+; Any message containing "nowabot"
+; Nowabot was the inspiration for this bot
 on *:text:*nowabot*:%channel: {
   msg $chan Did someone say something about my dad?
 }
+; Any message containing "moobot"
+; Moobot is just trash
 on *:text:*moobot*:%channel: {
   msg $chan Did someone say moobot? Do you think I'm moobot? Are you trying to imply that I'm similar to that useless, filthy, garbage bot? How dare you.
 }
+; Message that is only "!yonder"
+; Inside joke
 on *:text:!yonder:%channel: {
   msg $chan ...
 }
+; Command to help with reusability
+; Change the #bananamonkeytaco to the channel this bot will be used in
+; Access to this code is need for the reusability
 on *:text:!set:#bananamonkeytaco: {
+  ; This sets the global variable for the channel you want this bot to work in
   set %channel #bananamonkeytaco
+  ; This sets the global variable for what the points will be called
   set %points Bananas
+  ; Don't change this, just makes the basic ini file smalled and easier to use in the code
   set %ini $+(%points,.ini)
 }
+; Test to see if the global variable changed correctly
 on *:text:something:#bananamonkeytaco: {
   msg $chan %channel
   msg $chan %ini
