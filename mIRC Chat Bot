@@ -130,6 +130,22 @@ on *:text:!givebananas*:%channel: {
     msg $chan This command is for mods only.
   }
 }
+on *:text:!giveall:#bananamonkeytaco: {
+  if ($nick isop #bananamonkeytaco) {
+    if ($0 == 2) {
+      if ($3 isnum) {
+        window @names
+        filter -l $chan @names
+        filter -cx @names @names *nightbot*
+        filter -cx @names @names *bananamtbot*
+        %temp = $lines(@names)
+        while (%temp > 0) {
+          writeini -n Bananas.ini Bananas $line(@names,%temp) $calc($readini(Bananas.ini,Bananas,$line(@names,%temp))+ $2)
+        }
+      }
+    }
+  }
+}
 ; Command for unfinshed info doc about the bot
 on *:text:!info:%channel: {
   msg $chan For information about me check out this Google Doc: https://docs.google.com/document/d/1qJfsyScG3XepkhOqKGcETzF7QLC9hV876QphGW2woU8/edit?usp=sharing
