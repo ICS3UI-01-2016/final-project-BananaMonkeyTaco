@@ -130,20 +130,49 @@ on *:text:!givebananas*:%channel: {
     msg $chan This command is for mods only.
   }
 }
-on *:text:!giveall:#bananamonkeytaco: {
-  if ($nick isop #bananamonkeytaco) {
+; Command to give all current viewers an amount of points
+on *:text:!giveall*:%channel: {
+  ; Make sure the user is a moderator for the chat
+  if ($nick isop %channel) {
+    ; Make sure there are only 2 words for the command
     if ($0 == 2) {
-      if ($3 isnum) {
+      ; Make sure the second word is a number
+      if ($2 isnum) {
+        ; Make a window
         window @names
+        ; Filter all the values in the channel's listbox to the window
+        ; For the channel, the listbox will contain all the users in the chat
         filter -l $chan @names
+        ; Refilter the window but exclude any values containing nightbot
         filter -cx @names @names *nightbot*
+        ; The same as above but for bananamtbot
         filter -cx @names @names *bananamtbot*
+        ; Make a varieable for the amount of lines left in the window
         %temp = $lines(@names)
+        ; While loop
         while (%temp > 0) {
-          writeini -n Bananas.ini Bananas $line(@names,%temp) $calc($readini(Bananas.ini,Bananas,$line(@names,%temp))+ $2)
+          ; Standard writing to the ini file but the user is found by using a line from the window
+          writeini -n %ini %points $line(@names,%temp) $calc($readini(%ini,%points,$line(@names,%temp))+ $2)
         }
+        ; Close the unneeded window
+        window -c @names
+      }
+      ; If the second word was not a number
+      else {
+        ; Say that a number is required
+        msg $chan %points to give must be a number
       }
     }
+    ; If more or less than 2 values are given
+    else {
+      ; Say that an incorrect amount of values was given
+      msg $chan incorrect amount of values given.
+    }
+  }
+  ; If the user is not a moderator for the chat
+  else {
+    ; Tell them that they aren't good enough for this command
+    msg $chan This command is for mods only
   }
 }
 ; Command for unfinshed info doc about the bot
@@ -338,16 +367,21 @@ on *:text:!rank*:%channel: {
     ; If the second value is a number
     ; This is to see which user is at a specific rank
     else if ($2 isnum) {
+      ; Next 4 lines are standard at this point
       window @rank
-      window @newrank
       loadbuf -t @rank %ini
       dline @rank 1
-      filter -cnteu 2 61 @rank @newrank
       filter -cnteu 2 61 @rank @rank
-      filter -c @rank @rank $+(*,$nick,*)
-      %rank = $gettok($line(@rank,1),1,32)
-      filter -cr $+($calc(%rank -5),-,$calc(%rank +5)) @newrank @rank
-      msg $chan rank inbetweens $read(@rank) GGRRGTbrrbRBTREGRG error
+      ; Filter only the lines that start with the number given
+      filter -c @rank @rank $+($2,*)
+      ; Make the variable everything after the space/number from the first filter command
+      %rank = $gettok($line(@rank,1),2,32)
+      ; Make a variable the is the amount of points the user has by finding the 2 value seperated by an equals sign
+      %amount = $gettok(%rank,2,61)
+      ; Rewrite the first value to be everything before the equals sign
+      %rank = $gettok(%rank,1,61)
+      ; Tell the chat which user was at the specified rank and how many point they have
+      msg $chan The user at rank $2 is %rank with %amount of %points
     }
   }
   ; Reset all the variables involved
@@ -401,19 +435,27 @@ on *:text:!alltimerank*:%channel: {
       ; Message the chat what the specified user's rank was and how many points they have on the leaderboard
       msg $chan $2 is %rank on the leaderboard for all time %points
     }
+    ; If the second value is a number
+    ; This is to find out which user is at the specified rank on the leaderboard ini
     else if ($2 isnum) {
+      ; Next 4 lines are standard at this point
       window @rank
-      window @newrank
       loadbuf -t @rank Leaderboard.ini
       dline @rank 1
-      filter -cnteu 2 61 @rank @newrank
       filter -cnteu 2 61 @rank @rank
-      filter -c @rank @rank $+(*,$nick,*)
-      %rank = $gettok($line(@rank,1),1,32)
-      filter -cr $+($calc(%rank -5),-,$calc(%rank +5)) @newrank @rank
-      msg $chan rank inbetweens $read(@rank) GGRRGTbrrbRBTREGRG error
+      ; Filter only the lines that start with the number given
+      filter -c @rank @rank $+($2,*)
+      ; Make the variable everything after the space/number from the first filter command
+      %rank = $gettok($line(@rank,1),2,32)
+      ; Make a variable the is the amount of points the user has by finding the 2 value seperated by an equals sign
+      %amount = $gettok(%rank,2,61)
+      ; Rewrite the first value to be everything before the equals sign
+      %rank = $gettok(%rank,1,61)
+      ; Tell the chat which user was at the specified rank and how many point they have
+      msg $chan The user at rank $2 is %rank with %amount of %points
     }
   }
+  ; Reset all the variables involved
   %rank = null
   %amount = null
 }
