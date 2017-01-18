@@ -81,7 +81,7 @@ alias inisort {
   remini %ini Bananas
   ; Save what is in the sorted window to the ini file
   savebuf -a @sortPointsOut %ini
-  ; Same thign but for the leaderboard ini file
+  ; Same thing but for the leaderboard ini file
   remini Leaderboard.ini Bananas
   savebuf -a @sortLeaderboardOut Leaderboard.ini
   ; Close the unneeded windows
@@ -451,13 +451,96 @@ on *:text:!alltimerank*:%channel: {
       %amount = $gettok(%rank,2,61)
       ; Rewrite the first value to be everything before the equals sign
       %rank = $gettok(%rank,1,61)
-      ; Tell the chat which user was at the specified rank and how many point they have
+      ; Tell the chat which user was at the specified rank and how many points they have
       msg $chan The user at rank $2 is %rank with %amount of %points
     }
   }
   ; Reset all the variables involved
   %rank = null
   %amount = null
+}
+; Command to find out how many points a user needs to pass the user who has the next highest amount of points
+on *:text:!tonextrank:%channel: {
+  ; Make 2 windows
+  window @rank
+  window @rank2
+  ; Load the basic points ini into the first window
+  loadbuf -t @rank %ini
+  ; Delete the topic line
+  dline @rank 1
+  ; Sort all the lines
+  filter -cnteu 2 61 @rank @rank
+  ; Filter over the one line that contains the user's name into the second window
+  filter -c @rank @rank2 $+(*,$nick,*)
+  ; Make a variable that is the user's rank
+  %rank = $gettok($line(@rank2,1),1,32)
+  ; Variable for how many points the user has
+  %useramount = $gettok($line(@rank2,1),2,61)
+  ; Decrease the rank variable to get the person one rank higher
+  dec %rank
+  ; Clear the second window and filter the user who is one rank above the original user
+  filter -c @rank @rank2 $+(%rank,*)
+  ; Get the higher ranked user's name and points in one variable
+  %target = $gettok($line(@rank2,1),2,32)
+  ; Get the higher ranekd user's amount of points
+  %targetamount = $gettok(%target,2,61)
+  ; Make the target variable JUST the name of the user with a higher rank
+  %target = $gettok(%target,1,61)
+  ; Calculate how many points the original user needs to surpass the higher ranked user
+  %need = %targetamount - %useramount
+  ; Message the chat
+  msg $chan You need %need more points to pass %target who has %targetamount %points
+  ; Reset all the variables
+  %rank = null
+  %useramount = null
+  %target = null
+  %targetamount = null
+  %need = null
+}
+; EXACTLY the same as the previous command but for 2 exceptions
+; The first is loading the leaderboard ini instead of the basic ini
+; The other is telling the chat that the ranks are on the leaderboard
+on *:text:!tonextalltimerank:%channel: {
+  window @rank
+  window @rank2
+  loadbuf -t @rank Leaderboard.ini
+  dline @rank 1
+  filter -cnteu 2 61 @rank @rank
+  filter -c @rank @rank2 $+(*,$nick,*)
+  %rank = $gettok($line(@rank2,1),1,32)
+  %useramount = $gettok($line(@rank2,1),2,61)
+  dec %rank
+  filter -c @rank @rank2 $+(%rank,*)
+  %target = $gettok($line(@rank2,1),2,32)
+  %targetamount = $gettok(%target,2,61)
+  %target = $gettok(%target,1,61)
+  %need = %targetamount - %useramount
+  msg $chan You need %need more points to pass %target who has %targetamount %points on the Leaderboard
+  %rank = null
+  %useramount = null
+  %target = null
+  %targetamount = null
+  %need = null
+}
+on *:text:!torank*:%channel: {
+  window @rank
+  window @rank2
+  loadbuf -t @rank %ini
+  dline @rank 1
+  filter -cnteu 2 61 @rank @rank
+  filter -c @rank @rank2 $+(*,$nick,*)
+  %useramount = $gettok($line(@rank2,1),2,61)
+  if ($gettok($line(@rank2,1),1,31) = $2) {
+    return
+  }
+  filter -c @rank @rank2 $+($2,*)
+  %target = $gettok($line(@rank2,1),2,32)
+  %targetamount = $gettok(%target,2,61)
+  %target = $gettok(%target,1,61)
+  %need = %targetamount - 
+  ;filter out the target
+  ;get amounts, calc
+  ;if statements for positive/negative needs
 }
 ; On text command for showing the top 5 user's with the most current points
 on *:text:!leaderboard:%channel: {
@@ -594,7 +677,7 @@ on *:text:!yonder:%channel: {
 }
 ; Command to help with reusability
 ; Change the #bananamonkeytaco to the channel this bot will be used in
-; Access to this code is need for the reusability
+; Access to this code is needed for the reusability
 on *:text:!set:#bananamonkeytaco: {
   ; This sets the global variable for the channel you want this bot to work in
   set %channel #bananamonkeytaco
@@ -608,6 +691,8 @@ on *:text:something:#bananamonkeytaco: {
   msg $chan %channel
   msg $chan %ini
 }
+; Catch all on text event
+; No on text events after this can be activated
 on *:text:*:#: {
   return
 }
