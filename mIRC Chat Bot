@@ -522,25 +522,90 @@ on *:text:!tonextalltimerank:%channel: {
   %targetamount = null
   %need = null
 }
+; Command for a user to see how many points they need to get to a certain rank
 on *:text:!torank*:%channel: {
-  window @rank
-  window @rank2
-  loadbuf -t @rank %ini
-  dline @rank 1
-  filter -cnteu 2 61 @rank @rank
-  filter -c @rank @rank2 $+(*,$nick,*)
-  %useramount = $gettok($line(@rank2,1),2,61)
-  if ($gettok($line(@rank2,1),1,31) = $2) {
-    return
+  ; Make sure only 2 values are given
+  if ($0 = 2) {
+    ; Open 2 windows
+    window @rank
+    window @rank2
+    ; Load the basic ini into the first window
+    loadbuf -t @rank %ini
+    ; Delete the topic line
+    dline @rank 1
+    ; Standard filtering based on amount of points each user has
+    filter -cnteu 2 61 @rank @rank
+    ; Filter the user to the second window
+    filter -c @rank @rank2 $+(*,$nick,*)
+    ; If the user asked to get to the rank he's already at
+    if ($gettok($line(@rank2,1),1,31) = $2) {
+      ; Stop
+      return
+    }
+    ; Make a variable for how many points the user has
+    %useramount = $gettok($line(@rank2,1),2,61)
+    ; Clear the second window before bringing the rank the user specified to it
+    filter -c @rank @rank2 $+($2,*)
+    ; Make everything after the rank a variable
+    %target = $gettok($line(@rank2,1),2,32)
+    ; Make a variable storing the amount of points the person at the specified rank has
+    %targetamount = $gettok(%target,2,61)
+    ; Remake the variable to be the user at the specified rank
+    %target = $gettok(%target,1,61)
+    ; If there is no difference in points
+    if (%useramount = %targetamount) {
+      msg $chan You have the same amount of %points as that rank.
+    }
+    ; If the target has more points
+    else if (%targetamount > %useramount) {
+      %need = %targetamount - %useramount
+      ; Tell the user how many more points they need to get to the rank they want
+      msg $chan You need %need more %points to reach rank $2 and pass %target who has %targetamount %points
+    }
+    ; If the target has less points
+    else if (%targetamount < %useramount) {
+      %need = %useramount - %targetamount
+      ; Tell the user how many points ahead of the targeted rank they are
+      msg $chan %target needs %need more %points to get from rank $2 to your rank.
+    }
   }
-  filter -c @rank @rank2 $+($2,*)
-  %target = $gettok($line(@rank2,1),2,32)
-  %targetamount = $gettok(%target,2,61)
-  %target = $gettok(%target,1,61)
-  %need = %targetamount - 
-  ;filter out the target
-  ;get amounts, calc
-  ;if statements for positive/negative needs
+  ; If more/less than 2 words were given
+  else {
+    msg $chan Only two words are allowed for this command
+  }
+}
+; EXACTLY the same as the last one, except this command loads the leaderboard ini instead of the basic ini
+on *:text:!toalltimerank*:%channel: {
+  if ($0 = 2) {
+    window @rank
+    window @rank2
+    loadbuf -t @rank Leaderboard.ini
+    dline @rank 1
+    filter -cnteu 2 61 @rank @rank
+    filter -c @rank @rank2 $+(*,$nick,*)
+    if ($gettok($line(@rank2,1),1,31) = $2) {
+      return
+    }
+    %useramount = $gettok($line(@rank2,1),2,61)
+    filter -c @rank @rank2 $+($2,*)
+    %target = $gettok($line(@rank2,1),2,32)
+    %targetamount = $gettok(%target,2,61)
+    %target = $gettok(%target,1,61)
+    if (%useramount = %targetamount) {
+      msg $chan You have the same amount of %points as that rank.
+    }
+    else if (%targetamount > %useramount) {
+      %need = %targetamount - %useramount
+      msg $chan You need %need more %points to reach rank $2 and pass %target who has %targetamount %points
+    }
+    else if (%targetamount < %useramount) {
+      %need = %useramount - %targetamount
+      msg $chan %target needs %need more %points to get from rank $2 to your rank.
+    }
+  }
+  else {
+    msg $chan Only two words are allowed for this command
+  }
 }
 ; On text command for showing the top 5 user's with the most current points
 on *:text:!leaderboard:%channel: {
